@@ -119,3 +119,36 @@ Source text is HTML-escaped, embedded scripts/frames are disallowed and pages ar
 not cached. The server does not log tokens or research data. Keep the startup URL
 private and stop the server when finished. This is a local workbench, not a
 production multi-user or internet-facing clinical application.
+
+## Evidence-linked navigation simulations
+
+Draft navigation rules are for software research only. There is no production
+activation path and no patient-care recommendation. Every rule links to an audited
+evidence bundle; quotation matching alone does not establish medical support.
+
+- `health_create_navigation_policy(policy_json)` accepts JSON with `title`, `fields`,
+  `rules`, and `limitations`. Fields map symbolic names to enumerated options.
+  Each rule has `id`, `when` (field/value conditions), `outcome`, `rationale` and
+  `bundle_id`. Outcomes are limited to `information_only`,
+  `request_professional_review`, and `request_more_information` as simulated workflow labels.
+- `health_simulate_navigation(policy_id, expected_digest, facts_json, synthetic)`
+  requires `synthetic=true`. Missing fields, no matching rule or conflicting outcomes
+  produce abstention. Unknown fields and values are rejected.
+- `health_evaluate_navigation(policy_id, expected_digest, cases_json)` persists a
+  software evaluation report. Each case has `id`, `facts`, `synthetic`,
+  `expected_status` (`abstain` or `simulated_match`) and `expected_rule_ids`.
+  Counts measure agreement with declared synthetic software expectations, not
+  clinical accuracy, sensitivity, fairness, or efficacy.
+- `health_navigation_review_packet(policy_id)` exports the draft and professional
+  review questions. Clinical signoff remains unset. Local operator review cannot
+  enable patient-care use.
+
+Discover policy/evaluation IDs with `health_list_records`. The local workbench
+lists policies and provides source-linked review packets and synthetic simulation
+forms. Build evidence bundles using the research tools first. These generic
+synthetic fixtures contain no disease thresholds or competition materials.
+
+Before any clinical workflow could be considered, qualified professionals would
+need to specify intended use, population, evidence support, exclusions, escalation
+routes, independent clinical cases and validation plans. This software does not
+claim that such review or validation has happened.
