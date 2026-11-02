@@ -40,7 +40,7 @@ DEFINITIONS = {
                                      "search_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"}}, ["question", "claims", "limitations"]), False),
     "health_audit_bundle": ("Verify stored hashes and verbatim source quotes. A pass is not scientific or clinical validation.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
     "health_export_bundle": ("Return evidence CSV and manifest for client-side file creation. Human review remains pending; no external upload.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
-    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search"]}}), True),
+    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search", "task"]}}), True),
 }
 
 

@@ -186,7 +186,7 @@ class ResearchService:
                 "audit": audit, "review_status": "pending_human_review"}
 
     def list_records(self, kind="bundle"):
-        if kind not in {"bundle", "search"}:
-            raise ValueError("kind must be bundle or search")
+        if kind not in {"bundle", "search", "task"}:
+            raise ValueError("kind must be bundle, search or task")
         rows = self.db.execute("SELECT id FROM records WHERE kind=? ORDER BY rowid DESC LIMIT 50", (kind,)).fetchall()
         return {"kind": kind, "records": [r[0] for r in rows], "limit": 50}

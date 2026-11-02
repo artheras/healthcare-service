@@ -47,6 +47,7 @@ class TaskTests(unittest.TestCase):
         self.assertEqual(self.tasks.get(t['task_id'])['digest'], t['digest'])
         count = self.svc.db.execute("SELECT count(*) FROM records WHERE kind='task_revision'").fetchone()[0]
         self.assertEqual(count, 4)
+        self.assertEqual(self.svc.list_records("task")["records"], [t["task_id"]])
 
     def test_review_without_evidence_and_unknown_decision_rejected(self):
         t = self.tasks.create('Question', ['One'], ['Two'])
