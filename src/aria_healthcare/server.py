@@ -11,6 +11,8 @@ from . import __version__
 from .pubmed import PubMedClient, canonical
 from .service import ResearchService, parse_json
 
+from .tasks import TaskService
+
 PROTOCOLS = ("2025-06-18", "2024-11-05")
 MAX_LINE = 600_000
 
@@ -38,8 +40,24 @@ DEFINITIONS = {
                                      "search_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"}}, ["question", "claims", "limitations"]), False),
     "health_audit_bundle": ("Verify stored hashes and verbatim source quotes. A pass is not scientific or clinical validation.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
     "health_export_bundle": ("Return evidence CSV and manifest for client-side file creation. Human review remains pending; no external upload.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
-    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search"]}}), True),
+    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search", "task"]}}), True),
 }
+
+
+TASK_ID = {"type": "string", "pattern": "^[a-f0-9]{32}$"}
+DIGEST = {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+CRITERIA = {"type": "array", "items": STRING, "minItems": 1, "maxItems": 20}
+FIELDS = {"question": STRING, "inclusion": CRITERIA, "exclusion": CRITERIA}
+VERSION = {"task_id": TASK_ID, "expected_digest": DIGEST}
+DEFINITIONS.update({
+    "health_create_task": ("Create a public-literature research task with explicit screening criteria.", schema(FIELDS, list(FIELDS)), False),
+    "health_get_task": ("Resume a versioned task and inspect review status.", schema({"task_id": TASK_ID}, ["task_id"]), True),
+    "health_update_task": ("Change task scope. Clears screening, evidence links and prior review.", schema({**VERSION, **FIELDS}, [*VERSION, *FIELDS]), False),
+    "health_screen_article": ("Record a draft include/exclude/uncertain decision and reason against a retrieved source snapshot. Requires human review.", schema({**VERSION, "pmid": STRING, "decision": {"type": "string", "enum": ["include", "exclude", "uncertain"]}, "reason": STRING}, [*VERSION, "pmid", "decision", "reason"]), False),
+    "health_attach_bundle": ("Attach an audited evidence bundle; invalidates previous review.", schema({**VERSION, "bundle_id": TASK_ID}, [*VERSION, "bundle_id"]), False),
+    "health_request_review": ("Freeze a version for human review. Does not approve anything.", schema(VERSION, list(VERSION)), False),
+    "health_doctor": ("Check local storage, TLS trust and offline defaults without network requests.", schema(), True),
+})
 
 
 def validate(value, rule):
@@ -116,7 +134,23 @@ class Server:
         try:
             validate(args, DEFINITIONS[name][1])
             svc = self.service
-            if name == "health_capabilities":
+            tasks = TaskService(svc)
+            if name == "health_create_task":
+                result = tasks.create(**args)
+            elif name == "health_get_task":
+                result = tasks.get(**args)
+            elif name == "health_update_task":
+                result = tasks.update(**args)
+            elif name == "health_screen_article":
+                result = tasks.screen(**args)
+            elif name == "health_attach_bundle":
+                result = tasks.attach(**args)
+            elif name == "health_request_review":
+                result = tasks.request_review(**args)
+            elif name == "health_doctor":
+                import ssl
+                result = {"storage_ok": svc.db.execute("PRAGMA quick_check").fetchone()[0] == "ok", "tls_verification_required": True, "python_ca_available": ssl.get_default_verify_paths().cafile is not None, "network_enabled": svc.client.enabled, "online_connectivity_tested": False, "mcp_transport": "stdio"}
+            elif name == "health_capabilities":
                 result = svc.capabilities()
             elif name == "health_search_pubmed":
                 result = svc.search(**args)

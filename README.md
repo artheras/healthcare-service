@@ -68,3 +68,29 @@ unverified status. The stdio test launches a real child process with networking 
 Sources: [NCBI APIs](https://www.ncbi.nlm.nih.gov/home/develop/api/),
 [PMC reuse and retrieval rules](https://pmc.ncbi.nlm.nih.gov/tools/developers/).
 Article licenses vary. This service fetches PubMed abstracts, not PMC full text.
+
+## Versioned research tasks
+
+Use `health_create_task` with a question and explicit inclusion/exclusion criteria.
+`health_get_task` resumes the task. Every mutation requires the latest `expected_digest`.
+`health_screen_article` records a draft include/exclude/uncertain decision and reason
+against a retrieved source snapshot. `health_attach_bundle` links evidence;
+`health_request_review` requires all cited snapshots to have include decisions.
+Changing scope clears screening and bundle links. Any mutation invalidates prior review.
+Task revisions persist; concurrent changes reject stale digests atomically.
+
+`health_doctor` checks local SQLite storage and reports Python TLS configuration without
+making external requests. It does not establish online connectivity or model quality.
+
+Review is not an MCP tool. A local operator can run:
+
+```sh
+python -I -m aria_healthcare.review --workspace ./research-workspace \
+  --task-id TASK_ID --expected-digest DIGEST --reviewer NAME \
+  --decision approve --note 'Review findings'
+```
+
+This requires an interactive terminal and confirmation of the complete digest.
+The record states `identity_verified=false`: it records the operator's assertion,
+not authenticated clinician identity, scientific validity or clinical authorization.
+Hosts must enforce their own human approval and workspace access policies.
