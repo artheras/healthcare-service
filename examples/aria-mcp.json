@@ -1,0 +1,11 @@
+{
+  "servers": [{
+    "name": "aria-healthcare",
+    "command": "/ABSOLUTE/PATH/TO/VENV/bin/python",
+    "args": ["-I", "-m", "aria_healthcare.server"],
+    "env": {"ARIA_HEALTH_ALLOW_NETWORK": "0"},
+    "timeout": 120,
+    "enabled": true,
+    "description": "Public biomedical literature and evidence bundles; abstract only; human review required"
+  }]
+}
