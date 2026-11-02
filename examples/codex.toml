@@ -1,0 +1,7 @@
+[mcp_servers.aria-healthcare]
+command = "/ABSOLUTE/PATH/TO/VENV/bin/python"
+args = ["-I", "-m", "aria_healthcare.server"]
+tool_timeout_sec = 120
+
+[mcp_servers.aria-healthcare.env]
+ARIA_HEALTH_ALLOW_NETWORK = "0"
