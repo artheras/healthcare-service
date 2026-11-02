@@ -202,7 +202,7 @@ class MCPTests(unittest.TestCase):
         self.assertIn("error", self.call("tools/list"))
         self.initialize()
         tools = self.call("tools/list")["result"]["tools"]
-        self.assertEqual(len(tools), 7)
+        self.assertEqual(len(tools), 14)
         self.assertFalse(any("approve" in t["name"] for t in tools))
         self.assertIn("error", self.call("tools/call", {"name": "health_approve_bundle"}))
 
