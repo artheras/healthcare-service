@@ -4,6 +4,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import os
+import ssl
+import sys
+from pathlib import Path
 import threading
 import time
 import urllib.error
@@ -59,7 +63,13 @@ def plain(node):
 class PubMedClient:
     def __init__(self, *, enabled=False, email="", opener=None, sleep=time.sleep, clock=time.monotonic):
         self.enabled, self.email = enabled, email
-        self.opener = opener or urllib.request.build_opener(NoRedirect())
+        ca = None
+        if (sys.platform == "darwin" and not os.getenv("SSL_CERT_FILE")
+                and not os.getenv("SSL_CERT_DIR") and ssl.get_default_verify_paths().cafile is None
+                and Path("/etc/ssl/cert.pem").is_file()):
+            ca = "/etc/ssl/cert.pem"
+        self.opener = opener or urllib.request.build_opener(
+            NoRedirect(), urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=ca)))
         self.sleep, self.clock = sleep, clock
         self.last_request = None
         self.lock = threading.Lock()
