@@ -12,6 +12,7 @@ from .pubmed import PubMedClient, canonical
 from .service import ResearchService, parse_json
 
 from .tasks import TaskService
+from .navigation import NavigationService
 
 PROTOCOLS = ("2025-06-18", "2024-11-05")
 MAX_LINE = 600_000
@@ -40,7 +41,7 @@ DEFINITIONS = {
                                      "search_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"}}, ["question", "claims", "limitations"]), False),
     "health_audit_bundle": ("Verify stored hashes and verbatim source quotes. A pass is not scientific or clinical validation.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
     "health_export_bundle": ("Return evidence CSV and manifest for client-side file creation. Human review remains pending; no external upload.", schema({"bundle_id": STRING}, ["bundle_id"]), True),
-    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search", "task"]}}), True),
+    "health_list_records": ("List up to 50 persisted bundle/search IDs to resume research after restart.", schema({"kind": {"type": "string", "enum": ["bundle", "search", "task", "navigation_policy", "navigation_evaluation"]}}), True),
 }
 
 
@@ -57,6 +58,16 @@ DEFINITIONS.update({
     "health_attach_bundle": ("Attach an audited evidence bundle; invalidates previous review.", schema({**VERSION, "bundle_id": TASK_ID}, [*VERSION, "bundle_id"]), False),
     "health_request_review": ("Freeze a version for human review. Does not approve anything.", schema(VERSION, list(VERSION)), False),
     "health_doctor": ("Check local storage, TLS trust and offline defaults without network requests.", schema(), True),
+})
+
+
+JSON_TEXT = {"type": "string", "minLength": 2, "maxLength": 120000}
+POLICY_VERSION = {"policy_id": TASK_ID, "expected_digest": DIGEST}
+DEFINITIONS.update({
+    "health_create_navigation_policy": ("Create a draft SIMULATION-ONLY navigation policy from JSON with title, fields, rules and limitations. Rules require audited evidence bundles. No production activation or clinical approval.", schema({"policy_json": JSON_TEXT}, ["policy_json"]), False),
+    "health_simulate_navigation": ("Run symbolic, explicitly synthetic inputs against a draft policy. Never returns a patient-care recommendation; missing/conflicting inputs abstain.", schema({**POLICY_VERSION, "facts_json": JSON_TEXT, "synthetic": {"type": "boolean"}}, [*POLICY_VERSION, "facts_json", "synthetic"]), True),
+    "health_evaluate_navigation": ("Evaluate synthetic software fixtures and persist a report. Agreement with expected outputs is not clinical accuracy.", schema({**POLICY_VERSION, "cases_json": JSON_TEXT}, [*POLICY_VERSION, "cases_json"]), False),
+    "health_navigation_review_packet": ("Export an evidence-linked draft and professional review checklist. No clinical signoff or production activation.", schema({"policy_id": TASK_ID}, ["policy_id"]), True),
 })
 
 
@@ -135,7 +146,19 @@ class Server:
             validate(args, DEFINITIONS[name][1])
             svc = self.service
             tasks = TaskService(svc)
-            if name == "health_create_task":
+            nav = NavigationService(svc)
+            if name == "health_create_navigation_policy":
+                policy = parse_json(args["policy_json"])
+                if not isinstance(policy, dict) or set(policy) != {"title", "fields", "rules", "limitations"}:
+                    raise ValueError("Invalid draft policy fields")
+                result = nav.create(**policy)
+            elif name == "health_simulate_navigation":
+                result = nav.simulate(args["policy_id"], args["expected_digest"], parse_json(args["facts_json"]), args["synthetic"])
+            elif name == "health_evaluate_navigation":
+                result = nav.evaluate(args["policy_id"], args["expected_digest"], parse_json(args["cases_json"]))
+            elif name == "health_navigation_review_packet":
+                result = nav.review_packet(args["policy_id"])
+            elif name == "health_create_task":
                 result = tasks.create(**args)
             elif name == "health_get_task":
                 result = tasks.get(**args)

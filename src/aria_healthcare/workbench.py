@@ -14,6 +14,8 @@ from urllib.parse import parse_qs, urlsplit
 from .pubmed import PubMedClient
 from .service import ResearchService
 from .tasks import TaskService
+from .navigation import NavigationService
+from .service import parse_json
 
 
 def esc(value):
@@ -90,11 +92,23 @@ class Handler(BaseHTTPRequestHandler):
         svc = self.service()
         try:
             if parsed.path == "/":
-                content = '<h2>Research tasks</h2>'
+                content = '<h2>Navigation policy simulations</h2><p>Draft rules and synthetic software tests only; no clinical signoff.</p>'
+                for policy_id in svc.list_records('navigation_policy')['records']:
+                    packet = NavigationService(svc).review_packet(policy_id)
+                    content += f'<section><a href="/navigation?id={policy_id}">{esc(packet["policy"]["title"])}</a></section>'
+                content += '<h2>Research tasks</h2>'
                 for ident in svc.list_records("task")["records"]:
                     t = TaskService(svc).get(ident)
                     content += f'<section><a href="/task?id={ident}">{esc(t["snapshot"]["question"])}</a><p>{esc(t["snapshot"]["stage"])} · revision {t["snapshot"]["revision"]}</p></section>'
                 content += '<h2>Create a task</h2>' + self.form('/create', 'Create research task', self.field('question', 'Research question') + self.field('inclusion', 'Inclusion criteria, one per line') + self.field('exclusion', 'Exclusion criteria, one per line'))
+                return self.send(200, self.page(content))
+            if parsed.path == "/navigation":
+                ident = parse_qs(parsed.query).get('id', [''])[0]
+                packet = NavigationService(svc).review_packet(ident)
+                content = '<h2>Draft navigation policy · simulation only</h2><pre>' + esc(json.dumps(packet, indent=2)) + '</pre>'
+                fields = self.field('policy_id', '', ident, True) + self.field('expected_digest', '', packet['digest'], True)
+                content += self.form('/simulate', 'Run synthetic software simulation', fields + self.field('facts_json', 'Symbolic inputs as JSON') + '<label><input type="checkbox" name="synthetic" value="yes" required>I confirm these are synthetic software inputs, not patient data.</label>')
+                content += self.form('/evaluate', 'Evaluate synthetic test cases', fields + self.field('cases_json', 'Synthetic test cases as JSON'))
                 return self.send(200, self.page(content))
             if parsed.path != "/task":
                 return self.send(404, "Not found")
@@ -142,6 +156,13 @@ class Handler(BaseHTTPRequestHandler):
             svc = self.service()
             try:
                 tasks = TaskService(svc)
+                if self.path in {'/simulate', '/evaluate'}:
+                    nav = NavigationService(svc)
+                    if self.path == '/simulate':
+                        result = nav.simulate(data['policy_id'], data['expected_digest'], parse_json(data['facts_json']), data.get('synthetic') == 'yes')
+                    else:
+                        result = nav.evaluate(data['policy_id'], data['expected_digest'], parse_json(data['cases_json']))
+                    return self.send(200, self.page('<h2>Synthetic software result · not clinical validation</h2><pre>' + esc(json.dumps(result, indent=2)) + '</pre>'))
                 if self.path == '/create':
                     t = tasks.create(data['question'], data['inclusion'].splitlines(), data['exclusion'].splitlines())
                 else:

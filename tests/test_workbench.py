@@ -89,3 +89,24 @@ class WorkbenchTests(unittest.TestCase):
         self.assertIsNone(reviewed['scientifically_verified'])
         self.assertFalse(reviewed['snapshot']['review']['identity_verified'])
         svc.close()
+
+    def test_navigation_page_only_runs_explicit_synthetic_inputs(self):
+        from aria_healthcare.navigation import NavigationService
+        t = self.prepare()
+        svc = ResearchService(self.temp.name, fixture_client())
+        bundle_id = TaskService(svc).get(t['task_id'])['snapshot']['bundle_ids'][0]
+        p = NavigationService(svc).create('Synthetic policy', {'access': ['available', 'unavailable']},
+            [{'id': 'review', 'when': {'access': 'unavailable'}, 'outcome': 'request_professional_review',
+              'rationale': 'Synthetic workflow fixture', 'bundle_id': bundle_id}], ['No clinical validation'])
+        svc.close()
+        status, _, body = self.request('GET', '/navigation?id=' + p['policy_id'])
+        self.assertEqual(status, 200)
+        self.assertIn('simulation only', body)
+        data = {'csrf': self.server.token, 'policy_id': p['policy_id'], 'expected_digest': p['digest'],
+                'facts_json': '{"access":"unavailable"}'}
+        self.assertEqual(self.request('POST', '/simulate', data)[0], 400)
+        data['synthetic'] = 'yes'
+        status, _, body = self.request('POST', '/simulate', data)
+        self.assertEqual(status, 200)
+        self.assertIn('simulated_match', body)
+        self.assertIn('not_established', body)
