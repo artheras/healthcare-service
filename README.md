@@ -94,3 +94,28 @@ This requires an interactive terminal and confirmation of the complete digest.
 The record states `identity_verified=false`: it records the operator's assertion,
 not authenticated clinician identity, scientific validity or clinical authorization.
 Hosts must enforce their own human approval and workspace access policies.
+
+## Local research workbench
+
+```sh
+python -I -m aria_healthcare.workbench --workspace ./research-workspace
+```
+
+Open the private startup URL printed in your local terminal. The workbench binds
+only to `127.0.0.1` on a randomly assigned port. It provides task creation, scope
+editing, draft source screening, evidence-bundle inspection, review requests and
+local operator review forms. Use the MCP tools to retrieve sources and build bundles
+in the same workspace before linking them in the workbench. Network access stays
+off unless the operator explicitly enables it for public queries.
+
+A changed task scope clears evidence selections and invalidates previous review.
+Review requires the complete displayed version digest. It records an operator
+assertion, not authenticated professional identity or clinical authorization.
+Do not enter patient records. No diagnosis or medical triage rules are included.
+
+Sessions require a random startup token. Requests check the exact local Host;
+mutations additionally require the session cookie, same Origin and a form token.
+Source text is HTML-escaped, embedded scripts/frames are disallowed and pages are
+not cached. The server does not log tokens or research data. Keep the startup URL
+private and stop the server when finished. This is a local workbench, not a
+production multi-user or internet-facing clinical application.
