@@ -152,3 +152,18 @@ Before any clinical workflow could be considered, qualified professionals would
 need to specify intended use, population, evidence support, exclusions, escalation
 routes, independent clinical cases and validation plans. This software does not
 claim that such review or validation has happened.
+
+## Arthera Web, desktop and iOS
+
+These clients consume this service through the authenticated private Arthera
+backend, using the official plugin catalogue. Operators install a pinned service
+commit in a separate Python 3.11+ environment; clients opt in per account after
+a successful MCP probe. Local stdio configuration does not itself expose an HTTP
+endpoint. The backend isolates service workspaces per authenticated owner and
+does not accept executable paths from clients.
+
+The hosted finance bridge disables broker access and trading. Healthcare remains
+public-literature research only and cannot receive patient records or approve
+clinical use. Production storage and networking require explicit operator setup.
+Plugin workflows and host templates are maintained in
+[aria-plugins](https://github.com/artheras/aria-plugins).
