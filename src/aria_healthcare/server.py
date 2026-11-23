@@ -1,10 +1,12 @@
-"""Local stdio MCP endpoint for public-literature research tools."""
+"""Local stdio or Streamable HTTP MCP endpoint for public-literature research tools."""
 from __future__ import annotations
 
 import argparse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 from . import __version__
@@ -197,15 +199,82 @@ class Server:
         return {**reply, "result": output}
 
 
-def main():
+def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path.home() / ".aria-healthcare")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "streamable-http"),
+        default="stdio",
+        help="MCP transport mode (default: stdio).",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host.")
+    parser.add_argument("--port", type=int, default=8767, help="HTTP bind port.")
+    return parser
+
+
+def make_http_handler(server: Server):
+    lock = threading.Lock()
+
+    class _McpHttpHandler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args) -> None:  # noqa: A002
+            return
+
+        def _send_json(self, status: int, payload: dict) -> None:
+            raw = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/healthz":
+                self._send_json(200, {"status": "ok", "service": "aria-healthcare", "version": __version__, "transport": "streamable-http"})
+            else:
+                self._send_json(404, {"error": "Not found"})
+
+        def do_POST(self) -> None:  # noqa: N802
+            if self.path not in ("/", "/mcp"):
+                self._send_json(404, {"error": "Not found"})
+                return
+            length = int(self.headers.get("Content-Length", "0"))
+            if length > MAX_LINE:
+                self._send_json(413, {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Request too large"}})
+                return
+            raw = self.rfile.read(length)
+            try:
+                msg = parse_json(raw)
+            except (ValueError, UnicodeError, RecursionError):
+                self._send_json(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Invalid JSON"}})
+                return
+            with lock:
+                reply = server.dispatch(msg)
+            if reply is None:
+                self.send_response(202)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            self._send_json(200, reply)
+
+    return _McpHttpHandler
+
+
+def main(argv: list[str] | None = None):
+    args = build_arg_parser().parse_args(argv)
     client = PubMedClient(enabled=os.getenv("ARIA_HEALTH_ALLOW_NETWORK") == "1",
                           email=os.getenv("NCBI_CONTACT_EMAIL", ""))
     service = ResearchService(args.workspace, client)
     server = Server(service)
     try:
+        if args.transport == "streamable-http":
+            http_srv = ThreadingHTTPServer((args.host, args.port), make_http_handler(server))
+            try:
+                http_srv.serve_forever()
+            finally:
+                http_srv.server_close()
+            return
+
         stream = sys.stdin.buffer
         while line := stream.readline(MAX_LINE + 1):
             if len(line) > MAX_LINE:
