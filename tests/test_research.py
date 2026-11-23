@@ -233,6 +233,15 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(replies[4]["id"], 6)
         self.assertEqual(p.stderr, "")
 
+    def test_contracts_tools_json_matches_server_definitions(self):
+        self.initialize()
+        live_tools = self.call("tools/list")["result"]["tools"]
+        contract_path = Path(__file__).resolve().parents[1] / "contracts" / "tools.json"
+        self.assertTrue(contract_path.is_file())
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        self.assertEqual(contract.get("server"), "aria-healthcare")
+        self.assertEqual(contract.get("tools"), live_tools)
+
 
 if __name__ == "__main__":
     unittest.main()

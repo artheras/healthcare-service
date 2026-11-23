@@ -1,0 +1,610 @@
+{
+  "server": "aria-healthcare",
+  "tools": [
+    {
+      "name": "health_capabilities",
+      "description": "Inspect configured public research capabilities and limitations.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_search_pubmed",
+      "description": "Search PUBLIC literature topics only. Query is sent to NCBI; never send patient records or private data. Search is not an exhaustive systematic review.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "health_fetch_article",
+      "description": "Retrieve PubMed metadata and abstract by PMID; preserve publication types and correction notices. Abstract only, not full text. Cached locally.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pmid": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,8}$"
+          },
+          "refresh": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pmid"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "health_create_bundle",
+      "description": "Store evidence claims against retrieved abstracts. Quotes must match exactly; claim meaning and declared stance still require human review. This cannot approve conclusions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "pmid": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,8}$"
+                },
+                "source_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "section": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 4000
+                },
+                "stance": {
+                  "type": "string",
+                  "enum": [
+                    "supports",
+                    "contradicts",
+                    "uncertain"
+                  ]
+                }
+              },
+              "required": [
+                "text",
+                "pmid",
+                "source_sha256",
+                "section",
+                "quote",
+                "stance"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 40
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "minItems": 1,
+            "maxItems": 20
+          },
+          "search_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        },
+        "required": [
+          "question",
+          "claims",
+          "limitations"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_audit_bundle",
+      "description": "Verify stored hashes and verbatim source quotes. A pass is not scientific or clinical validation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "bundle_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_export_bundle",
+      "description": "Return evidence CSV and manifest for client-side file creation. Human review remains pending; no external upload.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bundle_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "bundle_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_list_records",
+      "description": "List up to 50 persisted bundle/search IDs to resume research after restart.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bundle",
+              "search",
+              "task",
+              "navigation_policy",
+              "navigation_evaluation"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_create_task",
+      "description": "Create a public-literature research task with explicit screening criteria.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "inclusion": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "minItems": 1,
+            "maxItems": 20
+          },
+          "exclusion": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "question",
+          "inclusion",
+          "exclusion"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_get_task",
+      "description": "Resume a versioned task and inspect review status.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_update_task",
+      "description": "Change task scope. Clears screening, evidence links and prior review.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "inclusion": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "minItems": 1,
+            "maxItems": 20
+          },
+          "exclusion": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "task_id",
+          "expected_digest",
+          "question",
+          "inclusion",
+          "exclusion"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_screen_article",
+      "description": "Record a draft include/exclude/uncertain decision and reason against a retrieved source snapshot. Requires human review.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "pmid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "include",
+              "exclude",
+              "uncertain"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "task_id",
+          "expected_digest",
+          "pmid",
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_attach_bundle",
+      "description": "Attach an audited evidence bundle; invalidates previous review.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bundle_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        },
+        "required": [
+          "task_id",
+          "expected_digest",
+          "bundle_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_request_review",
+      "description": "Freeze a version for human review. Does not approve anything.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "task_id",
+          "expected_digest"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_doctor",
+      "description": "Check local storage, TLS trust and offline defaults without network requests.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_create_navigation_policy",
+      "description": "Create a draft SIMULATION-ONLY navigation policy from JSON with title, fields, rules and limitations. Rules require audited evidence bundles. No production activation or clinical approval.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "policy_json": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120000
+          }
+        },
+        "required": [
+          "policy_json"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_simulate_navigation",
+      "description": "Run symbolic, explicitly synthetic inputs against a draft policy. Never returns a patient-care recommendation; missing/conflicting inputs abstain.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "facts_json": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120000
+          },
+          "synthetic": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy_id",
+          "expected_digest",
+          "facts_json",
+          "synthetic"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_evaluate_navigation",
+      "description": "Evaluate synthetic software fixtures and persist a report. Agreement with expected outputs is not clinical accuracy.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "expected_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "cases_json": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120000
+          }
+        },
+        "required": [
+          "policy_id",
+          "expected_digest",
+          "cases_json"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "health_navigation_review_packet",
+      "description": "Export an evidence-linked draft and professional review checklist. No clinical signoff or production activation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        },
+        "required": [
+          "policy_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
