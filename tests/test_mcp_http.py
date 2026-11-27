@@ -21,7 +21,7 @@ def test_arg_parser_defaults_and_http_flags():
 
 def test_streamable_http_health_and_tools_list(tmp_path):
     svc = ResearchService(tmp_path, PubMedClient(enabled=False))
-    mcp_srv = Server(svc)
+    mcp_srv = Server(svc, transport="streamable-http")
     http_srv = ThreadingHTTPServer(("127.0.0.1", 0), make_http_handler(mcp_srv))
     port = http_srv.server_address[1]
     t = threading.Thread(target=http_srv.serve_forever, daemon=True)
@@ -46,11 +46,30 @@ def test_streamable_http_health_and_tools_list(tmp_path):
 
         status, init_body = _rpc({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}})
         assert status == 200 and "result" in init_body
+        assert "skills" in init_body["result"]["capabilities"]
+        assert "prompts" in init_body["result"]["capabilities"]
         _rpc({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
         status, body = _rpc({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         assert status == 200
         names = {tool["name"] for tool in body["result"]["tools"]}
         assert {"health_doctor", "health_search_pubmed", "health_create_bundle"}.issubset(names)
+
+        status, skills_body = _rpc({"jsonrpc": "2.0", "id": 3, "method": "skills/list", "params": {}})
+        assert status == 200
+        skill_names = {s["name"] for s in skills_body["result"]["skills"]}
+        assert "biomedical-evidence-research" in skill_names
+
+        status, skill_detail = _rpc({"jsonrpc": "2.0", "id": 4, "method": "skills/get", "params": {"name": "biomedical-evidence-research"}})
+        assert status == 200
+        assert "Biomedical Evidence" in skill_detail["result"]["content"]
+
+        status, prompts_body = _rpc({"jsonrpc": "2.0", "id": 5, "method": "prompts/list", "params": {}})
+        assert status == 200
+        assert any(p["name"] == "biomedical-evidence-research" for p in prompts_body["result"]["prompts"])
+
+        status, prompt_detail = _rpc({"jsonrpc": "2.0", "id": 6, "method": "prompts/get", "params": {"name": "biomedical-evidence-research"}})
+        assert status == 200
+        assert "Biomedical Evidence" in prompt_detail["result"]["messages"][0]["content"]["text"]
     finally:
         http_srv.shutdown()
         http_srv.server_close()
